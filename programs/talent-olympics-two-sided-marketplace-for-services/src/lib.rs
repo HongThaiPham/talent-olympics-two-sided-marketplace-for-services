@@ -15,7 +15,11 @@ declare_id!("3uTTtinfRPsvpfszHMX2MDv5BEihCXHTwGUssWAPTzme");
 pub mod talent_olympics_two_sided_marketplace_for_services {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+    pub fn initialize(ctx: Context<Initialize>, fee: u64) -> Result<()> {
+        ctx.accounts.handler(fee)
+    }
+
+    pub fn set_fee(ctx: Context<SetFee>, fee: u64) -> Result<()> {
+        ctx.accounts.handler(fee)
     }
 }
