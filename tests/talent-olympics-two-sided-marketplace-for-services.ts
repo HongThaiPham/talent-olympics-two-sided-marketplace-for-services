@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { TalentOlympicsTwoSidedMarketplaceForServices } from "../target/types/talent_olympics_two_sided_marketplace_for_services";
 import { assert } from "chai";
+import { randomBytes } from "crypto";
 
 describe("talent-olympics-two-sided-marketplace-for-services", () => {
   // Configure the client to use the local cluster.
@@ -14,12 +15,18 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
     .TalentOlympicsTwoSidedMarketplaceForServices as Program<TalentOlympicsTwoSidedMarketplaceForServices>;
 
   const FEE = new anchor.BN(1_00_000_000);
+  const VENDOR_ID = new anchor.BN(randomBytes(8));
 
   const [admin, user1, user2] = [
     anchor.web3.Keypair.generate(),
     anchor.web3.Keypair.generate(),
     anchor.web3.Keypair.generate(),
   ];
+
+  const [vendorAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from("vendor"), VENDOR_ID.toArrayLike(Buffer, "le", 8)],
+    program.programId
+  );
 
   it("Init test successfully", async () => {
     const tx = await provider.connection.requestAirdrop(
@@ -65,5 +72,20 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
     assert.ok(tx);
 
     console.log("Fee updated successfully at tx: ", tx);
+  });
+
+  it("Should create vendor successfully", async () => {
+    const tx = await program.methods
+      .createVendor(VENDOR_ID, "Vendor 1")
+      .accountsPartial({
+        signer: user1.publicKey,
+        vendor: vendorAccount,
+      })
+      .signers([user1])
+      .rpc();
+
+    assert.ok(tx);
+
+    console.log("Service created successfully at tx: ", tx);
   });
 });

@@ -6,3 +6,9 @@ pub const CONFIG_SEED: &[u8] = b"config";
 
 #[constant]
 pub const VAULT_SEED: &[u8] = b"vault";
+
+#[constant]
+pub const VENDOR_SEED: &[u8] = b"vendor";
+
+#[constant]
+pub const SERVICE_SEED: &[u8] = b"service";

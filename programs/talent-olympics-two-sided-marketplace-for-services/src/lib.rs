@@ -22,4 +22,8 @@ pub mod talent_olympics_two_sided_marketplace_for_services {
     pub fn set_fee(ctx: Context<SetFee>, fee: u64) -> Result<()> {
         ctx.accounts.handler(fee)
     }
+
+    pub fn create_vendor(ctx: Context<CreateVendor>, id: u64, name: String) -> Result<()> {
+        ctx.accounts.handler(id, name)
+    }
 }
