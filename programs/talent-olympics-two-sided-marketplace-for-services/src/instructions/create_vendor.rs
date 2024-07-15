@@ -22,7 +22,7 @@ pub struct CreateVendor<'info> {
 impl<'info> CreateVendor<'info> {
     pub fn handler(&mut self, id: u64, name: String) -> Result<()> {
         self.vendor.set_inner(Vendor {
-            vendor_id: id,
+            id,
             authority: self.signer.to_account_info().key(),
             name,
         });

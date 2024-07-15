@@ -17,6 +17,14 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
   const FEE = new anchor.BN(1_00_000_000);
   const VENDOR_ID = new anchor.BN(randomBytes(8));
 
+  const assetArgs = {
+    id: new anchor.BN(randomBytes(8)),
+    name: "Solana Talent Olympics NFT 2024",
+    uri: "https://ipfs.io/ipfs/QmQQYq41wkaAu5ekxv3xeDbSKyribYvHP8Pz7kPddYvvwB",
+    agreements: "Some agreements",
+    price: new anchor.BN(1_000_000_000),
+  };
+
   const [admin, user1, user2] = [
     anchor.web3.Keypair.generate(),
     anchor.web3.Keypair.generate(),
@@ -82,6 +90,42 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
         vendor: vendorAccount,
       })
       .signers([user1])
+      .rpc();
+
+    assert.ok(tx);
+
+    console.log("Vendor created successfully at tx: ", tx);
+  });
+
+  it("Should create service successfully", async () => {
+    const [serviceAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("service"),
+        vendorAccount.toBuffer(),
+        assetArgs.id.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+    const asset = anchor.web3.Keypair.generate();
+    const tx = await program.methods
+      .createService(
+        VENDOR_ID,
+        assetArgs.id,
+        assetArgs.price,
+        assetArgs.name,
+        assetArgs.uri,
+        assetArgs.agreements,
+        true,
+        500
+      )
+      .accountsPartial({
+        signer: user1.publicKey,
+        vendor: vendorAccount,
+        service: serviceAccount,
+        logWrapper: null,
+        asset: asset.publicKey,
+      })
+      .signers([user1, asset])
       .rpc();
 
     assert.ok(tx);
