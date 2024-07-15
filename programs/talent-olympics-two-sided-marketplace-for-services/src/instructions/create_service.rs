@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use mpl_core::types::{Creator, DataState, PermanentFreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair, Royalties, RuleSet, TransferDelegate};
+use mpl_core::types::{Attribute, Attributes, Creator, DataState, PermanentFreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair, Royalties, RuleSet, TransferDelegate};
 
 use crate::{error::MyErrorCode, Service, Vendor, DISCRIMINATOR_SIZE, SERVICE_SEED, VENDOR_SEED};
 
@@ -46,14 +46,14 @@ impl<'info>  CreateService<'info> {
                 vendor: self.vendor.to_account_info().key(), 
                 price, 
                 name: name.clone(), 
-                agreements 
+                agreements: agreements.clone() 
             }
        );
-       self.mint_service_nft(name, uri, is_soulbound, royalty_basis_points)?;
+       self.mint_service_nft(name, uri, agreements, is_soulbound, royalty_basis_points)?;
         Ok(())
     }
 
-    fn mint_service_nft(&self, name: String, uri: String, is_soulbound: bool, royalty_basis_points: u16)->Result<()> {
+    fn mint_service_nft(&self, name: String, uri: String, agreements: String, is_soulbound: bool, royalty_basis_points: u16)->Result<()> {
        
 
         let mut asset_plugins = vec![
@@ -74,6 +74,26 @@ impl<'info>  CreateService<'info> {
                 }),
                 authority: Some(PluginAuthority::Address { address: self.service.key() }),
             },
+            PluginAuthorityPair {
+                plugin: Plugin::Attributes(Attributes {
+                    attribute_list: vec![
+                        Attribute {
+                            key: "name".to_string(),
+                            value: name.clone()
+                        },
+                        Attribute {
+                            key: "uri".to_string(),
+                            value: uri.clone()
+                        },
+                        Attribute {
+                            key: "agreements".to_string(),
+                            value: agreements
+                        }
+
+                    ]
+                }),
+                authority: Some(PluginAuthority::Address { address: self.service.key() }),
+            }
         ];
 
         // The Permanent Freeze Delegate plugin is a Permanent plugin that will always be present on the MPL Core Asset or MPL Core Collection to which it is added. A permanent plugin can only be added at the time of Asset or Collection creation.
