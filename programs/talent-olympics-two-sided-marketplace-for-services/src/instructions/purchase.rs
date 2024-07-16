@@ -2,7 +2,7 @@
 
 use anchor_lang::{prelude::*, system_program::{self, Transfer}};
 
-use crate::{error::MyErrorCode, ProtocolConfig, Service, Vendor, CONFIG_SEED, SERVICE_SEED};
+use crate::{error::MyErrorCode, ProtocolConfig, Service, Vendor, CONFIG_SEED, SERVICE_SEED, VAULT_SEED};
 
 #[derive(Accounts)]
 #[instruction(id: u64)]
@@ -14,7 +14,8 @@ pub struct Purchase<'info> {
     pub vendor_authority: SystemAccount<'info>,
     #[account(
       seeds = [CONFIG_SEED.as_ref()],
-      bump
+      bump,
+      has_one = vault
     )]
     pub config: Account<'info, ProtocolConfig>,
     #[account(
@@ -28,6 +29,13 @@ pub struct Purchase<'info> {
       has_one = asset,
     )]
     pub service: Account<'info, Service>,
+    /// CHECK: it's ok to use
+    #[account(
+        mut,
+        seeds = [VAULT_SEED.as_ref()],
+        bump
+    )]
+    pub vault: AccountInfo<'info>,
     /// The address of the asset.
     /// CHECK: Checked in mpl-core.
     #[account(mut)]
@@ -50,8 +58,20 @@ impl<'info> Purchase<'info> {
 
       let asset_price = self.service.price;
       self.transfer_sol_to_vendor(asset_price)?;
+      self.collect_fee()?;
       self.transfer_asset_to_buyer(id, bumps.service)?;
       Ok(())
+    }
+
+
+    fn collect_fee(&self) -> Result<()> {
+        let cpi_accounts = Transfer {
+            from: self.signer.to_account_info(),
+            to: self.vault.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(self.system_program.to_account_info(), cpi_accounts);
+        system_program::transfer(cpi_ctx, self.config.fee)?;
+        Ok(())
     }
 
     fn transfer_asset_to_buyer(&self, id:u64, service_bump: u8) -> Result<()> {
