@@ -49,4 +49,8 @@ pub mod talent_olympics_two_sided_marketplace_for_services {
             royalty_basis_points,
         )
     }
+
+    pub fn purchase(ctx: Context<Purchase>, id: u64) -> Result<()> {
+        ctx.accounts.handler(id, ctx.bumps)
+    }
 }

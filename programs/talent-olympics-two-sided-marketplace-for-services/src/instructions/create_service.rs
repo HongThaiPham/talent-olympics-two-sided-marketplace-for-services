@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use mpl_core::types::{Attribute, Attributes, Creator, DataState, PermanentFreezeDelegate, Plugin, PluginAuthority, PluginAuthorityPair, Royalties, RuleSet, TransferDelegate};
+use mpl_core::types::{Attribute, Attributes, Creator, DataState, PermanentFreezeDelegate, PermanentTransferDelegate, Plugin, PluginAuthority, PluginAuthorityPair, Royalties, RuleSet};
 
 use crate::{error::MyErrorCode, Service, Vendor, DISCRIMINATOR_SIZE, SERVICE_SEED, VENDOR_SEED};
 
@@ -46,7 +46,8 @@ impl<'info>  CreateService<'info> {
                 vendor: self.vendor.to_account_info().key(), 
                 price, 
                 name: name.clone(), 
-                agreements: agreements.clone() 
+                agreements: agreements.clone() ,
+                asset: self.asset.to_account_info().key()
             }
        );
        self.mint_service_nft(name, uri, agreements, is_soulbound, royalty_basis_points)?;
@@ -58,8 +59,8 @@ impl<'info>  CreateService<'info> {
 
         let mut asset_plugins = vec![
             PluginAuthorityPair {
-                plugin: Plugin::TransferDelegate( TransferDelegate{}),
-                authority: Some(PluginAuthority::Address { address: self.service.key() }),
+                plugin: Plugin::PermanentTransferDelegate( PermanentTransferDelegate{}),
+                authority: Some(PluginAuthority::Address { address: self.service.to_account_info().key() }),
             },
             PluginAuthorityPair {
                 plugin: Plugin::Royalties(Royalties {
@@ -72,7 +73,7 @@ impl<'info>  CreateService<'info> {
                     ],
                     rule_set: RuleSet::None
                 }),
-                authority: Some(PluginAuthority::Address { address: self.service.key() }),
+                authority: Some(PluginAuthority::Address { address: self.service.to_account_info().key() }),
             },
             PluginAuthorityPair {
                 plugin: Plugin::Attributes(Attributes {
@@ -92,7 +93,7 @@ impl<'info>  CreateService<'info> {
 
                     ]
                 }),
-                authority: Some(PluginAuthority::Address { address: self.service.key() }),
+                authority: Some(PluginAuthority::Address { address: self.service.to_account_info().key() }),
             }
         ];
 
@@ -106,7 +107,7 @@ impl<'info>  CreateService<'info> {
             asset_plugins.push(     
                 PluginAuthorityPair {
                     plugin: Plugin::PermanentFreezeDelegate( PermanentFreezeDelegate { frozen: true }),
-                    authority: Some(PluginAuthority::None)
+                    authority: Some(PluginAuthority::Address { address: self.service.to_account_info().key() })
                 }
             );
         };

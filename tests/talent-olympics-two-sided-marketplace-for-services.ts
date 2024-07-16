@@ -4,6 +4,17 @@ import { TalentOlympicsTwoSidedMarketplaceForServices } from "../target/types/ta
 import { assert } from "chai";
 import { randomBytes } from "crypto";
 
+import {
+  createNoopSigner,
+  createSignerFromKeypair,
+  keypairIdentity,
+  publicKey,
+} from "@metaplex-foundation/umi";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+
+import { fetchAssetV1, fetchCollection } from "@metaplex-foundation/mpl-core";
+
 describe("talent-olympics-two-sided-marketplace-for-services", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
@@ -24,6 +35,7 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
     agreements: "Some agreements",
     price: new anchor.BN(1_000_000_000),
   };
+  const asset = anchor.web3.Keypair.generate();
 
   const [admin, user1, user2] = [
     anchor.web3.Keypair.generate(),
@@ -31,10 +43,24 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
     anchor.web3.Keypair.generate(),
   ];
 
+  const [configAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from("config")],
+    program.programId
+  );
+
   const [vendorAccount] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("vendor"), VENDOR_ID.toArrayLike(Buffer, "le", 8)],
     program.programId
   );
+
+  const umi = createUmi(provider.connection.rpcEndpoint, "confirmed").use(
+    mplTokenMetadata()
+  );
+
+  // const mySigner = createNoopSigner(admin.publicKey);
+
+  const adminUmiKeypair = umi.eddsa.createKeypairFromSecretKey(admin.secretKey);
+  umi.use(keypairIdentity(adminUmiKeypair));
 
   it("Init test successfully", async () => {
     const tx = await provider.connection.requestAirdrop(
@@ -59,8 +85,9 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
   it("Should init protocol successfully", async () => {
     const tx = await program.methods
       .initialize(FEE)
-      .accounts({
+      .accountsPartial({
         signer: admin.publicKey,
+        config: configAccount,
       })
       .signers([admin])
       .rpc();
@@ -71,8 +98,9 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
   it("Should update fee successfully", async () => {
     const tx = await program.methods
       .setFee(new anchor.BN(1_000_000_000))
-      .accounts({
+      .accountsPartial({
         signer: admin.publicKey,
+        config: configAccount,
       })
       .signers([admin])
       .rpc();
@@ -106,7 +134,7 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
       ],
       program.programId
     );
-    const asset = anchor.web3.Keypair.generate();
+
     const tx = await program.methods
       .createService(
         VENDOR_ID,
@@ -130,6 +158,59 @@ describe("talent-olympics-two-sided-marketplace-for-services", () => {
 
     assert.ok(tx);
 
+    const assetAccountData = await fetchAssetV1(
+      umi,
+      publicKey(asset.publicKey.toString())
+    );
+    assert.equal(assetAccountData.name, assetArgs.name);
+    assert.equal(assetAccountData.uri, assetArgs.uri);
+    assert.equal(assetAccountData.royalties.creators.length, 1);
+    assert.equal(
+      assetAccountData.royalties.creators[0].address.toString(),
+      user1.publicKey.toString()
+    );
+    assert.equal(assetAccountData.royalties.creators[0].percentage, 100);
+    assert.equal(assetAccountData.royalties.basisPoints, 500);
+
+    assert.equal(
+      assetAccountData.permanentTransferDelegate.authority.address,
+      serviceAccount.toString()
+    );
+    assert.equal(
+      assetAccountData.permanentFreezeDelegate.authority.address,
+      serviceAccount.toString()
+    );
+    assert.ok(assetAccountData.permanentFreezeDelegate.frozen);
+
     console.log("Service created successfully at tx: ", tx);
+  });
+
+  it("Should purchase service successfully", async () => {
+    const [serviceAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("service"),
+        vendorAccount.toBuffer(),
+        assetArgs.id.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+
+    const tx = await program.methods
+      .purchase(assetArgs.id)
+      .accountsPartial({
+        signer: user1.publicKey,
+        config: configAccount,
+        vendor: vendorAccount,
+        vendorAuthority: user1.publicKey,
+        service: serviceAccount,
+        logWrapper: null,
+        asset: asset.publicKey,
+      })
+      .signers([user1])
+      .rpc();
+
+    assert.ok(tx);
+
+    console.log("Service purchased successfully at tx: ", tx);
   });
 });
